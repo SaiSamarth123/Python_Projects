@@ -28,27 +28,50 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
+SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/tasks",
+]
 
 
 class DailyPlanner:
     def __init__(self):
         """Initializes the Google Calendar API and gets the service."""
-        creds = None
+        self.creds = None
         if os.path.exists("token.json"):
-            creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
+            self.creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+        if not self.creds or not self.creds.valid:
+            if self.creds and self.creds.expired and self.creds.refresh_token:
+                self.creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     "credentials.json", SCOPES
                 )
-                creds = flow.run_local_server(port=0)
+                self.creds = flow.run_local_server(port=0)
             with open("token.json", "w") as token:
-                token.write(creds.to_json())
+                token.write(self.creds.to_json())
 
-        self.service = build("calendar", "v3", credentials=creds)
+        self.service = build("calendar", "v3", credentials=self.creds)
+
+    def get_tasks(self):
+        tasks_service = build("tasks", "v1", credentials=self.creds)
+        tasklists_result = tasks_service.tasklists().list(maxResults=10).execute()
+        tasklists = tasklists_result.get("items", [])
+
+        tasks = []
+        for tasklist in tasklists:
+            tasklist_id = tasklist["id"]
+            tasks_result = self.service.tasks().list(tasklist=tasklist_id).execute()
+            tasks.extend(tasks_result.get("items", []))
+        return tasks
+
+    def update_task_progress(self, task_id, progress):
+        tasks_service = build("tasks", "v1", credentials=self.creds)
+        task = tasks_service.tasks().get(tasklist="@default", task=task_id).execute()
+        task["notes"] = f"Progress: {progress}%"
+        tasks_service.tasks().update(
+            tasklist="@default", task=task_id, body=task
+        ).execute()
 
     def get_upcoming_events(self):
         """Gets the upcoming 10 events on the user's calendar."""
@@ -66,10 +89,7 @@ class DailyPlanner:
         )
         events = events_result.get("items", [])
 
-        # tasks_service = build('tasks', 'v1', credentials=self.credentials)  # You would need to provide the appropriate credentials here.
-        tasklists_result = self.service.tasklists().list(maxResults=10).execute()
-        tasklists = tasklists_result.get("items", [])
-        return events, tasklists
+        return events
 
     def create_event(
         self, start_time, end_time, summary, description=None, location=None
@@ -167,10 +187,12 @@ class DailyPlanner:
         print("Welcome to Daily Planner")
         while True:
             print("1. View upcoming events")
-            print("2. Add an event")
-            print("3. Update an event")
-            print("4. Delete an event")
-            print("5. Exit")
+            print("2. View upcoming tasks")
+            print("3. Update progress bar")
+            print("4. Add an event")
+            print("5. Update an event")
+            print("6. Delete an event")
+            print("7. Exit")
             choice = input("Enter your choice: ")
 
             if choice == "1":
@@ -184,15 +206,23 @@ class DailyPlanner:
                         )
                         print(start, event["summary"])
             elif choice == "2":
+                tasks = self.get_tasks()
+                for task in tasks:
+                    print(task["title"], task.get("notes", "No progress yet"))
+            elif choice == "3":
+                task_id = input("Enter the ID of the task you want to update: ")
+                progress = input("Enter your progress as a percentage (0-100): ")
+                self.update_task_progress(task_id, progress)
+            elif choice == "4":
                 # Prepare and add an event here
                 print("Functionality not implemented yet.")
-            elif choice == "3":
+            elif choice == "5":
                 # Update an event here
                 print("Functionality not implemented yet.")
-            elif choice == "4":
+            elif choice == "6":
                 # Delete an event here
                 print("Functionality not implemented yet.")
-            elif choice == "5":
+            elif choice == "7":
                 break
             else:
                 print("Invalid choice. Please try again.")
