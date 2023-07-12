@@ -65,7 +65,11 @@ class DailyPlanner:
             .execute()
         )
         events = events_result.get("items", [])
-        return events
+
+        # tasks_service = build('tasks', 'v1', credentials=self.credentials)  # You would need to provide the appropriate credentials here.
+        tasklists_result = self.service.tasklists().list(maxResults=10).execute()
+        tasklists = tasklists_result.get("items", [])
+        return events, tasklists
 
     def create_event(
         self, start_time, end_time, summary, description=None, location=None
@@ -144,19 +148,19 @@ class DailyPlanner:
         )
         print(f'Event updated: {updated_event["htmlLink"]}')
 
-    def delete_event(self, event_id):
-        """
-        Deletes an event.
+    # def delete_event(self, event_id):
+    #     """
+    #     Deletes an event.
 
-        :param event_id: str, the ID of the event to delete
-        """
-        try:
-            self.service.events().delete(
-                calendarId="primary", eventId=event_id
-            ).execute()
-            print("Event deleted.")
-        except googleapiclient.errors.HttpError:
-            print("Failed to delete event.")
+    #     :param event_id: str, the ID of the event to delete
+    #     """
+    #     try:
+    #         self.service.events().delete(
+    #             calendarId="primary", eventId=event_id
+    #         ).execute()
+    #         print("Event deleted.")
+    #     except googleapiclient.errors.HttpError:
+    #         print("Failed to delete event.")
 
     def console_interaction(self):
         """Console-based interaction for managing Google Calendar events."""
