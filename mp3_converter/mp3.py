@@ -30,8 +30,8 @@ def download_and_convert_to_mp3(yt, download_path):
 
 # Ask for the link from user
 playlist_url = input("Enter the playlist URL here: ")
-if not os.path.exists("music"):
-    os.makedirs("music")
+if not os.path.exists("downloads"):
+    os.makedirs("downloads")
 
 try:
     playlist = Playlist(playlist_url)
